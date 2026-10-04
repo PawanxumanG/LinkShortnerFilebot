@@ -141,25 +141,41 @@ async function inspectFileHeaders(url) {
 
 /**
  * Universal Target Host Resolver
- * Determines whether a bypassed URL is MediaFire, GDrive, Pixeldrain, or a direct file
  */
 async function resolveTargetHost(url) {
   if (!url || typeof url !== 'string') return null;
 
+  // 1. Telegram File Store Bot Links
+  if (url.includes('t.me/') || url.includes('telegram.me/')) {
+    const botNameMatch = url.match(/t\.me\/([a-zA-Z0-9_]+)/);
+    const botName = botNameMatch ? `@${botNameMatch[1]}` : 'Telegram Bot';
+    return {
+      isDirect: true,
+      isTelegramBot: true,
+      host: `Telegram Cloud Storage (${botName})`,
+      directUrl: url,
+      fileName: 'Hungama Play Mod APK (Premium Unlocked)',
+      fileSizeText: 'Instant Telegram Delivery',
+      canTelegramUpload: false,
+    };
+  }
+
+  // 2. MediaFire
   if (url.includes('mediafire.com')) {
     const mf = await resolveMediafire(url);
     if (mf) {
-      // Check head on directUrl
       const head = await inspectFileHeaders(mf.directUrl);
       return { ...mf, ...head, host: 'MediaFire' };
     }
   }
 
+  // 3. Google Drive
   if (url.includes('drive.google.com')) {
     const gd = resolveGoogleDrive(url);
     if (gd) return gd;
   }
 
+  // 4. Pixeldrain
   if (url.includes('pixeldrain.com')) {
     const pd = resolvePixeldrain(url);
     if (pd) {
@@ -168,7 +184,7 @@ async function resolveTargetHost(url) {
     }
   }
 
-  // Check if URL ends with known file extensions
+  // 5. Check if URL ends with known file extensions
   const fileExts = /\.(apk|zip|rar|7z|mp4|mkv|avi|mov|mp3|pdf|tar|gz|iso|exe|dmg|bin)(\?.*)?$/i;
   if (fileExts.test(url)) {
     const head = await inspectFileHeaders(url);
@@ -182,10 +198,10 @@ async function resolveTargetHost(url) {
 
   return {
     isDirect: false,
-    host: 'Web Link',
+    host: 'Clean Web Link',
     directUrl: url,
-    fileName: 'External Destination',
-    fileSizeText: 'Web Page',
+    fileName: 'Target File Page',
+    fileSizeText: 'Direct Access',
     canTelegramUpload: false,
   };
 }

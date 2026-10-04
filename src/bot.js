@@ -104,7 +104,8 @@ function sendHelpMessage(chatId) {
     `2️⃣ <b>Paste the link</b> directly into this bot.\n` +
     `3️⃣ The bot will automatically bypass all timers and:\n` +
     `   • If file is $\\le$ 50 MB: <b>Sends the file directly</b> into Telegram!\n` +
-    `   • If file is &gt; 50 MB: <b>Sends a 1-tap fast direct download link</b> (No Ads).\n\n` +
+    `   • If file is stored in Telegram Bot: <b>Sends 1-tap claim button</b>!\n` +
+    `   • If file is &gt; 50 MB: <b>Sends 1-tap fast direct download link</b> (No Ads).\n\n` +
     `💡 <i>Tip: You can also forward messages containing links directly to this bot!</i>`;
 
   bot.sendMessage(chatId, helpText, { parse_mode: 'HTML' });
@@ -124,11 +125,12 @@ bot.on('callback_query', (query) => {
       `🌐 <b>Supported Shorteners & Hosts:</b>\n\n` +
       `✅ <b>Ad-Link Networks:</b>\n` +
       `• NowShort / LiteShort / Open.nowshort\n` +
-      `• GPLinks / Droplink / Rocklinks\n` +
+      `• ShortXLinks / GPLinks / Droplink / Rocklinks\n` +
       `• ShortUrlLink / TinyURL / Bitly / Cuttly\n\n` +
       `✅ <b>Direct File Hosts:</b>\n` +
       `• MediaFire (Instant Direct Link & Auto-Download)\n` +
       `• Google Drive (High-Speed Direct Links)\n` +
+      `• Telegram Cloud File Storage Bots (1-Tap Delivery)\n` +
       `• Pixeldrain / Direct APK / ZIP / MP4 links\n\n` +
       `🚀 <i>Send any link now to try it!</i>`;
 
@@ -164,10 +166,41 @@ bot.on('message', async (msg) => {
     const bypassResult = await bypassShortLink(url);
     const destinationUrl = bypassResult.finalUrl || url;
 
-    // Step 2: Resolve Target Host (MediaFire, GDrive, Direct File)
+    // Step 2: Resolve Target Host (MediaFire, GDrive, Telegram Bot, Direct File)
     const hostInfo = await resolveTargetHost(destinationUrl);
 
-    // If file is eligible for direct Telegram document upload (<= 49 MB)
+    // Case A: Telegram File Store Bot Link
+    if (hostInfo && hostInfo.isTelegramBot) {
+      const tgCaption =
+        `🎉 <b>Link Successfully Bypassed!</b>\n\n` +
+        `📦 <b>Target File:</b> <code>${escapeHtml(hostInfo.fileName)}</code>\n` +
+        `🌐 <b>Host:</b> ${escapeHtml(hostInfo.host)}\n` +
+        `⏱️ <b>Time Saved:</b> ~5 Minutes (All Ad-Layers Skipped!)\n\n` +
+        `👇 <b>Tap the button below to get your file instantly:</b>`;
+
+      const tgButtons = [
+        [{ text: '⚡ Get File in Telegram (1-Tap)', url: hostInfo.directUrl }],
+      ];
+
+      if (statusMsg) {
+        try {
+          await bot.editMessageText(tgCaption, {
+            chat_id: chatId,
+            message_id: statusMsg.message_id,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: tgButtons },
+          });
+          return;
+        } catch (e) {}
+      }
+
+      return bot.sendMessage(chatId, tgCaption, {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: tgButtons },
+      });
+    }
+
+    // Case B: Direct Telegram Document Upload (<= 49 MB)
     if (hostInfo && hostInfo.canTelegramUpload && hostInfo.directUrl) {
       if (statusMsg) {
         try {
@@ -185,7 +218,6 @@ bot.on('message', async (msg) => {
         } catch (e) {}
       }
 
-      // Download file to temp storage in runner
       let downloaded;
       try {
         downloaded = await downloadFile(hostInfo.directUrl, hostInfo.fileName);
@@ -213,7 +245,7 @@ bot.on('message', async (msg) => {
       }
     }
 
-    // If file > 50MB or web destination: Send clean 1-tap download card
+    // Case C: File > 50MB or Web Destination -> Clean 1-Tap Download Card
     const targetLink = hostInfo && hostInfo.directUrl ? hostInfo.directUrl : destinationUrl;
     const fileName = (hostInfo && hostInfo.fileName) ? hostInfo.fileName : 'Direct Download';
     const fileSize = (hostInfo && hostInfo.fileSizeText) ? hostInfo.fileSizeText : 'High-Speed Cloud';
