@@ -1,0 +1,37 @@
+name: LinkShortner File Downloader 24/7 Cloud Runner
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    # Auto-restart runner every 5 hours to stay within GitHub Actions limits
+    - cron: '0 */5 * * *'
+
+concurrency:
+  group: linkshortner-bot-runner
+  cancel-in-progress: true
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    name: ⚡ 24/7 Cloud Runner
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 📦 Install NPM Dependencies
+        run: npm install
+
+      - name: 🚀 Launch LinkShortner File Downloader Bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '8536316846:AAHmY7rdftg-5SX8d7w30-PT1-SrnhdPuyc' }}
+          PORT: 3000
+        run: node src/bot.js
